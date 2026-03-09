@@ -408,7 +408,7 @@ tbody td { padding: 10px 12px; }
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbw-STDb1PlGBQD0atMZ89qeimyxpJRwKKTuujHNUR2idvokqRDZrmHqUvAkVbNO1CM/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxsP4sIyn2oya0AkM2aF9Oxu5rOy07FcYfOniaJf5YdPoQrXmg-ruRM3HVXhxlAANI/exec';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 let productos = [];
@@ -691,24 +691,41 @@ function cancelarImport() {
 
 async function guardarEnSheets() {
   if (!productosImportados.length) return;
-  mostrarStatus('💾 Guardando en Google Sheets...');
   document.getElementById('progressWrap').style.display = 'block';
-  setProgreso(50);
+
+  const LOTE = 200;
+  const total = productosImportados.length;
+  const totalLotes = Math.ceil(total / LOTE);
 
   try {
-    await apiCall('saveProductos', { productos: productosImportados });
+    for (let i = 0; i < totalLotes; i++) {
+      const lote = i + 1;
+      const slice = productosImportados.slice(i * LOTE, lote * LOTE);
+      const pct = Math.round((lote / totalLotes) * 100);
+      mostrarStatus(`💾 Guardando lote ${lote} de ${totalLotes}... (${pct}%)`);
+      setProgreso(pct);
+
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveProductos', productos: slice, lote, totalLotes })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+    }
+
     setProgreso(100);
     productos = productosImportados;
     renderBuscar(productos);
     renderStock(productos);
     actualizarStats();
     cancelarImport();
-    showToast(`✅ ${productosImportados.length} productos guardados`, 'ok');
+    showToast(`✅ ${total} productos guardados en Sheets`, 'ok');
     showTab('buscar');
   } catch (e) {
-    showToast('❌ Error al guardar', 'err');
+    showToast('❌ Error al guardar: ' + e.message, 'err');
   }
-  setTimeout(() => mostrarProgreso(false), 1000);
+  setTimeout(() => mostrarProgreso(false), 1500);
 }
 
 // ── HISTORIAL ──
