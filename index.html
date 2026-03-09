@@ -408,7 +408,7 @@ tbody td { padding: 10px 12px; }
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbyrrmcqXaN7vE557m2UET0TdCiWVLzjQLcc0zqXoEGbcYygJl1KWHorKV1VfkEO4TE/exec';
+const API = 'https://script.google.com/macros/s/AKfycbw-STDb1PlGBQD0atMZ89qeimyxpJRwKKTuujHNUR2idvokqRDZrmHqUvAkVbNO1CM/exec';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 let productos = [];
@@ -420,23 +420,46 @@ window.addEventListener('load', () => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 });
 
-// ── API ──
-async function apiCall(action, body = {}) {
+// ── API via JSONP (evita CORS) ──
+function apiCall(action, body = {}) {
   setSyncIndicator('🟡');
-  try {
-    const url = `${API}?action=${action}`;
-    const res = await fetch(url, {
-      method: body && Object.keys(body).length ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      body: body && Object.keys(body).length ? JSON.stringify({ action, ...body }) : undefined
-    });
-    const data = await res.json();
-    setSyncIndicator('🟢');
-    return data;
-  } catch (e) {
-    setSyncIndicator('🔴');
-    throw e;
-  }
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+
+    // Armar params
+    const params = new URLSearchParams({ action, callback: cbName });
+    if (body && Object.keys(body).length) {
+      params.append('payload', JSON.stringify(body));
+    }
+
+    window[cbName] = (data) => {
+      delete window[cbName];
+      document.body.removeChild(script);
+      setSyncIndicator('🟢');
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      delete window[cbName];
+      document.body.removeChild(script);
+      setSyncIndicator('🔴');
+      reject(new Error('Error de conexión'));
+    };
+
+    script.src = `${API}?${params.toString()}`;
+    document.body.appendChild(script);
+
+    // Timeout 15s
+    setTimeout(() => {
+      if (window[cbName]) {
+        delete window[cbName];
+        if (script.parentNode) document.body.removeChild(script);
+        setSyncIndicator('🔴');
+        reject(new Error('Timeout'));
+      }
+    }, 15000);
+  });
 }
 
 function setSyncIndicator(icon) {
