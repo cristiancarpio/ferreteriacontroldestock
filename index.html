@@ -695,7 +695,7 @@ async function guardarEnSheets() {
   mostrarStatus('💾 Guardando en Google Sheets...');
   setProgreso(30);
 
-  const LOTE = 50;
+  const LOTE = 10;
   const total = productosImportados.length;
   const totalLotes = Math.ceil(total / LOTE);
 
@@ -743,10 +743,11 @@ function enviarLote(productos, lote, totalLotes) {
       else resolve(data);
     };
 
-    script.onerror = () => {
+    script.onerror = (err) => {
       delete window[cbName];
       if (script.parentNode) document.body.removeChild(script);
-      reject(new Error('Error de red'));
+      console.error('Error lote', lote, 'URL length:', script.src.length, err);
+      reject(new Error('Error de red en lote ' + lote));
     };
 
     script.src = `${API}?${params.toString()}`;
