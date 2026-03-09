@@ -695,7 +695,7 @@ async function guardarEnSheets() {
   mostrarStatus('💾 Guardando en Google Sheets...');
   setProgreso(30);
 
-  const LOTE = 300;
+  const LOTE = 50;
   const total = productosImportados.length;
   const totalLotes = Math.ceil(total / LOTE);
 
