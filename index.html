@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#FFD100">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Ferretería">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Ferretería INGUE — Stock</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&display=swap');
+
+:root {
+  --amarillo: #FFD100;
+  --amarillo2: #FFA500;
+  --negro: #0f0f0f;
+  --gris1: #181818;
+  --gris2: #222;
+  --gris3: #2e2e2e;
+  --blanco: #f0ede6;
+  --rojo: #e63946;
+  --verde: #2ecc71;
+  --azul: #3a86ff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--negro);
+  color: var(--blanco);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+/* ── NAV ── */
+nav {
+  background: var(--amarillo);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 62px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 3px 16px rgba(0,0,0,0.5);
+  gap: 12px;
+}
+nav .logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: var(--negro);
+  letter-spacing: 2px;
+  line-height: 1;
+  flex: 1;
+}
+nav .logo span { font-size: 1rem; display: block; letter-spacing: 3px; opacity: 0.55; margin-top: -4px; }
+
+/* ── TAB BAR ── */
+.tabbar {
+  background: var(--gris1);
+  display: flex;
+  border-bottom: 2px solid var(--gris2);
+  position: sticky;
+  top: 62px;
+  z-index: 190;
+}
+.tab {
+  flex: 1;
+  padding: 14px 4px;
+  text-align: center;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+}
+.tab.active { color: var(--amarillo); border-bottom-color: var(--amarillo); }
+.tab .tab-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+/* ── PAGES ── */
+.page { display: none; padding: 20px 16px 100px; }
+.page.active { display: block; }
+
+/* ── BUSCADOR ── */
+.search-box {
+  background: var(--gris2);
+  border: 3px solid var(--amarillo);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 16px;
+  margin-bottom: 16px;
+}
+.search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--blanco);
+  font-family: 'Barlow', sans-serif;
+  padding: 10px 0;
+}
+.search-box input::placeholder { color: #444; }
+.search-box .clear { background: none; border: none; color: #666; font-size: 1.5rem; cursor: pointer; padding: 4px; }
+
+.result-info { font-size: 1rem; color: #666; margin-bottom: 12px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
+.result-info strong { color: var(--amarillo); font-size: 1.1rem; }
+
+/* ── PRODUCTO CARD ── */
+.producto-card {
+  background: var(--gris1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+  border-left: 4px solid var(--gris3);
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.producto-card:active { background: var(--gris2); }
+.producto-card.stock-ok { border-left-color: var(--verde); }
+.producto-card.stock-bajo { border-left-color: var(--amarillo2); }
+.producto-card.stock-cero { border-left-color: var(--rojo); }
+
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.card-desc { font-size: 1.2rem; font-weight: 700; line-height: 1.3; flex: 1; }
+.card-precio { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--amarillo); white-space: nowrap; }
+.card-bottom { display: flex; justify-content: space-between; align-items: center; }
+.card-codigo { font-size: 0.85rem; color: #666; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
+.card-marca { font-size: 0.9rem; color: var(--amarillo2); font-weight: 600; }
+.card-stock { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 1px; }
+.stock-ok .card-stock { color: var(--verde); }
+.stock-bajo .card-stock { color: var(--amarillo2); }
+.stock-cero .card-stock { color: var(--rojo); }
+
+.highlight { background: var(--amarillo); color: var(--negro); border-radius: 3px; padding: 0 2px; }
+
+/* ── MODAL EDITAR ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 500;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--gris1);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 40px;
+  width: 100%;
+  max-width: 600px;
+  border-top: 4px solid var(--amarillo);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.modal-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: var(--amarillo);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.modal-desc { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: var(--blanco); line-height: 1.3; }
+
+.modal-field { margin-bottom: 16px; }
+.modal-field label {
+  display: block;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.modal-field input {
+  width: 100%;
+  background: var(--gris2);
+  border: 2px solid var(--gris3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--blanco);
+  font-family: 'Barlow', sans-serif;
+  outline: none;
+  -webkit-appearance: none;
+}
+.modal-field input:focus { border-color: var(--amarillo); }
+
+.modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+.btn {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-amarillo { background: var(--amarillo); color: var(--negro); }
+.btn-gris { background: var(--gris3); color: var(--blanco); }
+.btn-rojo { background: var(--rojo); color: white; }
+.btn-verde { background: var(--verde); color: var(--negro); }
+
+/* ── IMPORT PAGE ── */
+.drop-zone {
+  border: 3px dashed var(--amarillo);
+  border-radius: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--gris1);
+  position: relative;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+}
+.drop-zone.drag-over { background: #2a2600; border-color: white; }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; font-size: 16px; }
+.drop-zone .dz-icon { font-size: 3rem; display: block; margin-bottom: 10px; }
+.drop-zone h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--amarillo); margin-bottom: 6px; letter-spacing: 1px; }
+.drop-zone p { color: #777; font-size: 0.95rem; line-height: 1.5; }
+
+.progress-wrap { display: none; background: var(--gris2); border-radius: 8px; overflow: hidden; height: 12px; margin-bottom: 10px; }
+.progress-bar { height: 100%; background: var(--amarillo); width: 0%; transition: width 0.3s; }
+.status-msg { display: none; text-align: center; font-size: 1rem; color: var(--amarillo); font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+.preview-section { display: none; }
+.preview-section h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--amarillo); letter-spacing: 1px; margin-bottom: 12px; }
+.preview-table-wrap { overflow-x: auto; border-radius: 10px; background: var(--gris1); margin-bottom: 16px; max-height: 300px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+thead { background: var(--amarillo); color: var(--negro); font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; letter-spacing: 0.5px; position: sticky; top: 0; }
+thead th { padding: 10px 12px; text-align: left; font-weight: 700; }
+tbody tr { border-bottom: 1px solid var(--gris2); }
+tbody tr:last-child { border-bottom: none; }
+tbody td { padding: 10px 12px; }
+
+/* ── HISTORIAL ── */
+.historial-item {
+  background: var(--gris1);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--azul);
+}
+.historial-item.precio { border-left-color: var(--amarillo); }
+.historial-item.stock { border-left-color: var(--verde); }
+.hist-fecha { font-size: 0.8rem; color: #666; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; margin-bottom: 4px; }
+.hist-desc { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.hist-cambio { font-size: 0.9rem; color: #aaa; }
+.hist-cambio strong { color: var(--amarillo); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--gris3);
+  color: var(--blanco);
+  padding: 14px 24px;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 999;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.ok { background: var(--verde); color: var(--negro); }
+.toast.err { background: var(--rojo); }
+
+/* ── EMPTY / LOADING ── */
+.empty { text-align: center; padding: 60px 20px; color: #444; }
+.empty .empty-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+.empty p { font-size: 1.1rem; }
+
+.loading { text-align: center; padding: 40px; color: var(--amarillo); font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 1px; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-box {
+  flex: 1;
+  background: var(--gris1);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+  border-top: 3px solid var(--gris3);
+}
+.stat-box.ok { border-top-color: var(--verde); }
+.stat-box.bajo { border-top-color: var(--amarillo2); }
+.stat-box.cero { border-top-color: var(--rojo); }
+.stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
+.stat-label { font-size: 0.75rem; color: #666; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🔧 Ferretería <span>CONTROL DE STOCK</span></div>
+  <div id="syncIndicator" style="font-size:1.4rem" title="Estado sincronización">⚪</div>
+</nav>
+
+<div class="tabbar">
+  <div class="tab active" onclick="showTab('buscar')"><span class="tab-icon">🔍</span>Buscar</div>
+  <div class="tab" onclick="showTab('stock')"><span class="tab-icon">📦</span>Stock</div>
+  <div class="tab" onclick="showTab('importar')"><span class="tab-icon">📄</span>Importar</div>
+  <div class="tab" onclick="showTab('historial')"><span class="tab-icon">📋</span>Historial</div>
+</div>
+
+<!-- BUSCAR -->
+<div class="page active" id="page-buscar">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Buscá un producto..." oninput="filtrar()" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clear" onclick="limpiarBusqueda()">✕</button>
+  </div>
+  <div class="result-info" id="resultInfo"></div>
+  <div id="listaProductos"><div class="loading">Cargando productos...</div></div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="page-stock">
+  <div class="stats-bar">
+    <div class="stat-box ok"><div class="stat-num" id="statOk">-</div><div class="stat-label">Con stock</div></div>
+    <div class="stat-box bajo"><div class="stat-num" id="statBajo">-</div><div class="stat-label">Stock bajo</div></div>
+    <div class="stat-box cero"><div class="stat-num" id="statCero">-</div><div class="stat-label">Sin stock</div></div>
+  </div>
+  <div class="search-box">
+    <input type="text" id="stockSearch" placeholder="Filtrar..." oninput="filtrarStock()" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clear" onclick="document.getElementById('stockSearch').value='';filtrarStock()">✕</button>
+  </div>
+  <div id="listaStock"><div class="loading">Cargando...</div></div>
+</div>
+
+<!-- IMPORTAR -->
+<div class="page" id="page-importar">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".pdf" multiple>
+    <span class="dz-icon">📄</span>
+    <h2>Subir PDF de proveedor</h2>
+    <p>Tocá para elegir o arrastrá el archivo.<br>Funciona con cualquier formato de lista.</p>
+  </div>
+  <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="status-msg" id="statusMsg"></div>
+  <div class="preview-section" id="previewSection">
+    <h3 id="previewTitle">Vista previa</h3>
+    <div class="preview-table-wrap">
+      <table><thead><tr><th>Código</th><th>Descripción</th><th>Marca</th><th>Precio</th></tr></thead>
+      <tbody id="previewBody"></tbody></table>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-amarillo" onclick="guardarEnSheets()">💾 Guardar en Google Sheets</button>
+      <button class="btn btn-gris" onclick="cancelarImport()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORIAL -->
+<div class="page" id="page-historial">
+  <div id="listaHistorial"><div class="loading">Cargando historial...</div></div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="modalOverlay" onclick="cerrarModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Editar producto</div>
+    <div class="modal-desc" id="modalDesc"></div>
+    <div class="modal-field">
+      <label>💰 Precio</label>
+      <input type="text" id="modalPrecio" inputmode="decimal">
+    </div>
+    <div class="modal-field">
+      <label>📦 Cantidad en stock</label>
+      <input type="number" id="modalStock" inputmode="numeric" min="0">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-amarillo" onclick="guardarEdicion()">✓ Guardar</button>
+      <button class="btn btn-gris" onclick="cerrarModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxg1xLzrELMJAsUaqmgAPycy_4gD_8Yco3ycOLTmdM8ufust1gwEPSBYt5r7AAdinQ/exec';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let productos = [];
+let productoEditando = null;
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  cargarProductos();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+});
+
+// ── API ──
+async function apiCall(action, body = {}) {
+  setSyncIndicator('🟡');
+  try {
+    const url = `${API}?action=${action}`;
+    const res = await fetch(url, {
+      method: body && Object.keys(body).length ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body && Object.keys(body).length ? JSON.stringify({ action, ...body }) : undefined
+    });
+    const data = await res.json();
+    setSyncIndicator('🟢');
+    return data;
+  } catch (e) {
+    setSyncIndicator('🔴');
+    throw e;
+  }
+}
+
+function setSyncIndicator(icon) {
+  document.getElementById('syncIndicator').textContent = icon;
+}
+
+// ── CARGAR PRODUCTOS ──
+async function cargarProductos() {
+  try {
+    const data = await apiCall('getProductos');
+    productos = data.productos || [];
+    renderBuscar(productos);
+    renderStock(productos);
+    actualizarStats();
+  } catch (e) {
+    document.getElementById('listaProductos').innerHTML = `<div class="empty"><span class="empty-icon">⚠️</span><p>Error al conectar con Google Sheets.<br>Verificá tu conexión.</p></div>`;
+  }
+}
+
+// ── RENDER BUSCAR ──
+function renderBuscar(lista, term = '') {
+  const el = document.getElementById('listaProductos');
+  const info = document.getElementById('resultInfo');
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty"><span class="empty-icon">🔍</span><p>${term ? 'No se encontraron productos.' : 'No hay productos cargados.<br>Importá una lista de precios.'}</p></div>`;
+    info.textContent = '';
+    return;
+  }
+
+  info.innerHTML = `<strong>${lista.length}</strong> producto${lista.length !== 1 ? 's' : ''}${term ? ` para "${term}"` : ''}`;
+
+  el.innerHTML = lista.map(p => {
+    const stockClass = p.stock > 5 ? 'stock-ok' : p.stock > 0 ? 'stock-bajo' : 'stock-cero';
+    const stockLabel = p.stock > 0 ? `${p.stock} en stock` : 'SIN STOCK';
+    return `<div class="producto-card ${stockClass}" onclick="abrirModal('${p.codigo}')">
+      <div class="card-top">
+        <div class="card-desc">${highlight(p.descripcion, term)}</div>
+        <div class="card-precio">$${p.precio}</div>
+      </div>
+      <div class="card-bottom">
+        <div>
+          <div class="card-codigo">${highlight(p.codigo, term)}</div>
+          <div class="card-marca">${highlight(p.marca || '', term)}</div>
+        </div>
+        <div class="card-stock">${stockLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER STOCK ──
+function renderStock(lista) {
+  const term = document.getElementById('stockSearch').value.toLowerCase();
+  const filtrados = term ? lista.filter(p =>
+    (p.descripcion||'').toLowerCase().includes(term) ||
+    (p.codigo||'').toLowerCase().includes(term)
+  ) : lista;
+
+  const sorted = [...filtrados].sort((a, b) => (a.stock || 0) - (b.stock || 0));
+  const el = document.getElementById('listaStock');
+
+  if (!sorted.length) {
+    el.innerHTML = `<div class="empty"><span class="empty-icon">📦</span><p>No hay productos.</p></div>`;
+    return;
+  }
+
+  el.innerHTML = sorted.map(p => {
+    const stockClass = p.stock > 5 ? 'stock-ok' : p.stock > 0 ? 'stock-bajo' : 'stock-cero';
+    const stockLabel = p.stock > 0 ? `${p.stock} unidades` : 'SIN STOCK';
+    return `<div class="producto-card ${stockClass}" onclick="abrirModal('${p.codigo}')">
+      <div class="card-top">
+        <div class="card-desc">${p.descripcion}</div>
+        <div class="card-stock" style="font-family:'Bebas Neue';font-size:1.4rem">${stockLabel}</div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-codigo">${p.codigo} · <span class="card-marca">${p.marca||''}</span></div>
+        <div class="card-precio">$${p.precio}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function actualizarStats() {
+  document.getElementById('statOk').textContent = productos.filter(p => p.stock > 5).length;
+  document.getElementById('statBajo').textContent = productos.filter(p => p.stock > 0 && p.stock <= 5).length;
+  document.getElementById('statCero').textContent = productos.filter(p => !p.stock || p.stock == 0).length;
+}
+
+// ── BUSCAR ──
+function filtrar() {
+  const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  if (!term) { renderBuscar(productos); return; }
+  const filtrados = productos.filter(p =>
+    (p.descripcion||'').toLowerCase().includes(term) ||
+    (p.codigo||'').toLowerCase().includes(term) ||
+    (p.marca||'').toLowerCase().includes(term)
+  );
+  renderBuscar(filtrados, term);
+}
+
+function filtrarStock() { renderStock(productos); }
+
+function limpiarBusqueda() {
+  document.getElementById('searchInput').value = '';
+  filtrar();
+  document.getElementById('searchInput').focus();
+}
+
+function highlight(text, term) {
+  if (!term || !text) return text || '';
+  const r = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return String(text).replace(r, '<span class="highlight">$1</span>');
+}
+
+// ── MODAL EDITAR ──
+function abrirModal(codigo) {
+  productoEditando = productos.find(p => String(p.codigo) === String(codigo));
+  if (!productoEditando) return;
+  document.getElementById('modalTitle').textContent = 'Editar producto';
+  document.getElementById('modalDesc').textContent = productoEditando.descripcion;
+  document.getElementById('modalPrecio').value = productoEditando.precio || '';
+  document.getElementById('modalStock').value = productoEditando.stock || 0;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function cerrarModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('open');
+  productoEditando = null;
+}
+
+async function guardarEdicion() {
+  if (!productoEditando) return;
+  const nuevoPrecio = document.getElementById('modalPrecio').value.trim();
+  const nuevoStock = parseInt(document.getElementById('modalStock').value) || 0;
+  const codigo = productoEditando.codigo;
+
+  document.getElementById('modalOverlay').classList.remove('open');
+
+  try {
+    const promesas = [];
+    if (nuevoPrecio !== String(productoEditando.precio)) {
+      promesas.push(apiCall('updatePrecio', { codigo, precio: nuevoPrecio }));
+    }
+    if (nuevoStock !== parseInt(productoEditando.stock || 0)) {
+      promesas.push(apiCall('updateStock', { codigo, stock: nuevoStock }));
+    }
+
+    if (promesas.length) {
+      await Promise.all(promesas);
+      // Actualizar local
+      const idx = productos.findIndex(p => String(p.codigo) === String(codigo));
+      if (idx !== -1) {
+        productos[idx].precio = nuevoPrecio;
+        productos[idx].stock = nuevoStock;
+      }
+      renderBuscar(productos, document.getElementById('searchInput').value.toLowerCase());
+      renderStock(productos);
+      actualizarStats();
+      showToast('✅ Guardado en Google Sheets', 'ok');
+    } else {
+      showToast('Sin cambios', '');
+    }
+  } catch (e) {
+    showToast('❌ Error al guardar', 'err');
+  }
+}
+
+// ── IMPORTAR PDF ──
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf');
+  if (files.length) procesarPDFs(files);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) procesarPDFs([...e.target.files]);
+});
+
+let productosImportados = [];
+
+async function procesarPDFs(files) {
+  mostrarProgreso(true);
+  productosImportados = [];
+
+  for (let i = 0; i < files.length; i++) {
+    setProgreso((i / files.length) * 60);
+    mostrarStatus(`📄 Leyendo ${files[i].name}...`);
+    const prods = await parsearPDF(files[i]);
+    productosImportados = productosImportados.concat(prods);
+  }
+
+  setProgreso(80);
+
+  if (productosImportados.length < 3) {
+    mostrarStatus('🤖 Analizando con IA...');
+    productosImportados = await parsearConIA(files);
+  }
+
+  setProgreso(100);
+  mostrarStatus(`✅ ${productosImportados.length} productos detectados`);
+
+  // Mantener stock existente al importar
+  productosImportados = productosImportados.map(p => {
+    const existente = productos.find(e => String(e.codigo) === String(p.codigo));
+    return { ...p, stock: existente ? existente.stock : 0 };
+  });
+
+  mostrarPreview(productosImportados);
+  setTimeout(() => mostrarProgreso(false), 1000);
+}
+
+function mostrarPreview(lista) {
+  document.getElementById('previewTitle').textContent = `Vista previa — ${lista.length} productos`;
+  document.getElementById('previewBody').innerHTML = lista.slice(0, 50).map(p =>
+    `<tr><td>${p.codigo}</td><td>${p.descripcion}</td><td>${p.marca||''}</td><td>$${p.precio}</td></tr>`
+  ).join('') + (lista.length > 50 ? `<tr><td colspan="4" style="color:#666;text-align:center;padding:10px">...y ${lista.length - 50} más</td></tr>` : '');
+  document.getElementById('previewSection').style.display = 'block';
+}
+
+function cancelarImport() {
+  document.getElementById('previewSection').style.display = 'none';
+  productosImportados = [];
+  document.getElementById('fileInput').value = '';
+}
+
+async function guardarEnSheets() {
+  if (!productosImportados.length) return;
+  mostrarStatus('💾 Guardando en Google Sheets...');
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgreso(50);
+
+  try {
+    await apiCall('saveProductos', { productos: productosImportados });
+    setProgreso(100);
+    productos = productosImportados;
+    renderBuscar(productos);
+    renderStock(productos);
+    actualizarStats();
+    cancelarImport();
+    showToast(`✅ ${productosImportados.length} productos guardados`, 'ok');
+    showTab('buscar');
+  } catch (e) {
+    showToast('❌ Error al guardar', 'err');
+  }
+  setTimeout(() => mostrarProgreso(false), 1000);
+}
+
+// ── HISTORIAL ──
+async function cargarHistorial() {
+  const el = document.getElementById('listaHistorial');
+  el.innerHTML = '<div class="loading">Cargando historial...</div>';
+  try {
+    const data = await apiCall('getHistorial');
+    const items = data.historial || [];
+    if (!items.length) {
+      el.innerHTML = `<div class="empty"><span class="empty-icon">📋</span><p>No hay cambios registrados todavía.</p></div>`;
+      return;
+    }
+    el.innerHTML = [...items].reverse().map(h => `
+      <div class="historial-item ${h.Tipo?.toLowerCase() || ''}">
+        <div class="hist-fecha">${formatFecha(h.Fecha)}</div>
+        <div class="hist-desc">${h.Descripcion} <span style="color:#666;font-size:0.85rem">(${h.Codigo})</span></div>
+        <div class="hist-cambio">${h.Tipo}: <strong>${h['Valor Anterior']}</strong> → <strong>${h['Valor Nuevo']}</strong></div>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><span class="empty-icon">⚠️</span><p>Error al cargar historial.</p></div>`;
+  }
+}
+
+function formatFecha(f) {
+  if (!f) return '';
+  const d = new Date(f);
+  if (isNaN(d)) return f;
+  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── TABS ──
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const ids = ['buscar','stock','importar','historial'];
+    t.classList.toggle('active', ids[i] === id);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (id === 'historial') cargarHistorial();
+  if (id === 'stock') renderStock(productos);
+}
+
+// ── PDF PARSER ──
+async function parsearPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const lineas = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const rows = {};
+    for (const item of content.items) {
+      const y = Math.round(item.transform[5]);
+      if (!rows[y]) rows[y] = [];
+      rows[y].push(item.str);
+    }
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y => {
+      const l = rows[y].join(' ').trim();
+      if (l) lineas.push(l);
+    });
+  }
+  return extraerProductos(lineas);
+}
+
+function extraerProductos(lineas) {
+  const productos = [];
+  let marcaActual = '';
+  let i = 0;
+  while (i < lineas.length) {
+    const linea = lineas[i].trim();
+    if (/^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s\-\.]+$/.test(linea) && linea.length < 35 && !/\d/.test(linea)) {
+      marcaActual = linea; i++; continue;
+    }
+    if (/^\d{6,10}$/.test(linea.replace(/\s/g,''))) {
+      const desc = (lineas[i+1]||'').trim();
+      const precio = (lineas[i+2]||'').trim();
+      if (/[\d.,]+/.test(precio) && desc.length > 2) {
+        productos.push({ codigo: linea.trim(), descripcion: desc, precio, marca: marcaActual, stock: 0 });
+        i += 3; continue;
+      }
+    }
+    const m = linea.match(/^(\d{6,10})\s+(.+?)\s+([\d.,]+)\s*$/);
+    if (m) { productos.push({ codigo: m[1], descripcion: m[2].trim(), precio: m[3], marca: marcaActual, stock: 0 }); i++; continue; }
+    i++;
+  }
+  return productos;
+}
+
+async function parsearConIA(files) {
+  const textos = [];
+  for (const file of files) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let texto = '';
+    for (let p = 1; p <= Math.min(pdf.numPages, 4); p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      texto += content.items.map(i => i.str).join(' ') + '\n';
+    }
+    textos.push(texto.substring(0, 6000));
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: `Extraé todos los productos de esta lista de precios de ferretería. Respondé SOLO con JSON sin backticks:\n{"productos":[{"codigo":"...","descripcion":"...","precio":"...","marca":"..."}]}\n\nTexto:\n${textos.join('\n---\n')}` }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.map(c => c.text||'').join('');
+    return JSON.parse(text.replace(/```json|```/g,'').trim()).productos.map(p => ({...p, stock: 0})) || [];
+  } catch { return []; }
+}
+
+// ── UI HELPERS ──
+function mostrarProgreso(show) {
+  document.getElementById('progressWrap').style.display = show ? 'block' : 'none';
+  document.getElementById('statusMsg').style.display = show ? 'block' : 'none';
+  if (!show) setProgreso(0);
+}
+function setProgreso(v) { document.getElementById('progressBar').style.width = v + '%'; }
+function mostrarStatus(msg) { document.getElementById('statusMsg').textContent = msg; }
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
